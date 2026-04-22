@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload - SnapLocate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.esm.js" type="module"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#080b14',
+                        accent: '#5c6fff',
+                        accent2: '#a78bfa',
+                        glass: 'rgba(255,255,255,0.04)',
+                        glassBorder: 'rgba(255,255,255,0.08)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'Manrope', sans-serif !important; }
+        body { background-color: theme('colors.bg'); color: #111111 !important; }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden">
+    <!-- Blobs -->
+    <div class="fixed top-[-100px] left-[-100px] w-[600px] h-[600px] rounded-full bg-accent opacity-[0.12] blur-[120px] -z-10 pointer-events-none"></div>
+    <div class="fixed bottom-[-100px] right-[-100px] w-[500px] h-[500px] rounded-full bg-accent2 opacity-[0.10] blur-[100px] -z-10 pointer-events-none"></div>
+
+    <!-- Navbar -->
+    <nav class="flex justify-between items-center px-6 md:px-12 py-6 w-full fixed top-0 z-50 backdrop-blur-md border-b border-[#111111]/10 text-[#111111]">
+        <a href="index.html" class="flex items-center gap-2 font-extrabold text-2xl text-[#111111]">
+            <span class="text-accent">⬡</span> SnapLocate
+        </a>
+        <a href="index.html" class="bg-[#111111]/5 hover:bg-[#111111]/10 border border-[#111111]/10 transition-colors duration-300 px-6 py-2.5 rounded-full text-sm font-semibold text-[#111111]">&larr; Back Home</a>
+    </nav>
+
+    <main class="pt-32 pb-20 px-6 max-w-4xl mx-auto flex flex-col items-center min-h-[calc(100vh-80px)] justify-center">
+        <h1 class="font-extrabold text-4xl md:text-[56px] mb-12 fade-in text-center text-[#111111]">Upload Your Photo.</h1>
+        
+        <!-- Drag & Drop Zone -->
+        <div id="drop-zone" class="fade-in w-full h-[320px] bg-glass border-2 border-dashed border-[#111111]/20 rounded-3xl flex flex-col justify-center items-center backdrop-blur-xl transition-all duration-300 relative overflow-hidden group hover:border-accent hover:bg-accent/5 cursor-pointer">
+            <input type="file" id="fileInput" accept="image/*" style="display:none">
+            
+            <div class="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300 pointer-events-none">🌍</div>
+            <p class="text-2xl font-bold mb-3 text-[#111111] pointer-events-none">Drop your photo here</p>
+            <button id="browseBtn" class="bg-[#111111]/10 group-hover:bg-accent group-hover:border-accent border border-[#111111]/20 px-8 py-3 rounded-full font-semibold transition-all duration-300 relative z-20 shadow-lg text-[#111111]">Browse Files</button>
+        </div>
+
+        <!-- Preview & Data Split -->
+        <div id="preview-section" class="w-full hidden mt-4 fade-in" style="display:none">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Left: Preview -->
+                <div class="bg-glass border border-[#111111]/10 rounded-3xl overflow-hidden backdrop-blur-xl flex items-center justify-center p-4 h-[340px]">
+                    <img id="preview" src="" alt="Preview" class="max-w-full max-h-full object-contain rounded-2xl shadow-2xl">
+                </div>
+                
+                <!-- Right: Details -->
+                <div class="bg-glass border border-[#111111]/10 rounded-3xl p-8 backdrop-blur-xl flex flex-col justify-between h-[340px]">
+                    <div>
+                        <div class="flex items-start justify-between mb-2">
+                            <h3 class="font-bold text-2xl truncate pr-4 text-[#111111]" id="file-name">filename.jpg</h3>
+                            <button id="reset-btn" class="text-[#111111]/50 hover:text-[#111111] transition-colors" title="Change Image">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                        </div>
+                        <p class="text-[#111111] text-sm mb-6 font-medium" id="file-size">0.0 MB</p>
+                        
+                        <div id="gpsBadge" class="text-sm font-semibold">
+                            Locating...
+                        </div>
+                    </div>
+                    
+                    <button id="findBtn" class="w-full bg-gradient-to-r from-accent to-accent2 py-4 rounded-xl font-bold text-lg hover:shadow-[0_0_20px_rgba(92,111,255,0.4)] transition-all duration-300 text-[#111111]" style="display:none;" onclick="location.href='results.html'">
+                        Find Location &rarr;
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <p class="mt-12 text-[#111111] text-sm flex items-center gap-2 fade-in" style="animation-delay: 0.2s;">
+            🔒 Your image never leaves your browser.
+        </p>
+    </main>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('fileInput');
+        const browseBtn = document.getElementById('browseBtn');
+
+        // Click to upload triggers
+        dropZone.addEventListener('click', () => { fileInput.click(); });
+        browseBtn.addEventListener('click', (e) => { 
+            e.stopPropagation(); 
+            fileInput.click(); 
+        });
+
+        // Drag events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); });
+        });
+        dropZone.addEventListener('dragover', () => dropZone.classList.add('border-accent', 'bg-accent/5'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-accent', 'bg-accent/5'));
+        dropZone.addEventListener('drop', (e) => {
+            dropZone.classList.remove('border-accent', 'bg-accent/5');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        // Reset
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('preview-section').style.display = 'none';
+            document.getElementById('drop-zone').style.display = 'flex';
+            document.getElementById('gpsBadge').innerHTML = '';
+            localStorage.removeItem('uploadedImage');
+            localStorage.removeItem('lat');
+            localStorage.removeItem('lng');
+            localStorage.removeItem('gpsFound');
+        });
+    </script>
+    
+    <script type="module">
+    import exifr from 'https://cdn.jsdelivr.net/npm/exifr/dist/full.esm.js'
+
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0]
+      if (!file) return
+      
+      // Update UI with file details
+      document.getElementById('drop-zone').style.display = 'none';
+      document.getElementById('preview-section').style.display = 'block';
+      document.getElementById('file-name').textContent = file.name;
+      document.getElementById('file-size').textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+      document.getElementById('gpsBadge').innerHTML = 'Analyzing...';
+      
+      // Show image preview
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        document.getElementById('preview').src = ev.target.result
+        localStorage.setItem('uploadedImage', ev.target.result)
+      }
+      reader.readAsDataURL(file)
+      
+      // Extract GPS
+      try {
+        const gps = await exifr.gps(file)
+        if (gps && gps.latitude && gps.longitude) {
+          // GPS FOUND
+          localStorage.setItem('lat', gps.latitude)
+          localStorage.setItem('lng', gps.longitude)
+          localStorage.setItem('gpsFound', 'true')
+          document.getElementById('gpsBadge').innerHTML = 
+            '<span style="color:#22c55e">✓ GPS Found</span>'
+          document.getElementById('findBtn').style.display = 'block'
+        } else {
+          // NO GPS
+          localStorage.setItem('gpsFound', 'false')
+          document.getElementById('gpsBadge').innerHTML = 
+            '<span style="color:#ef4444">✕ No GPS Data in this photo</span>'
+          document.getElementById('findBtn').style.display = 'none'
+        }
+      } catch(err) {
+        document.getElementById('gpsBadge').innerHTML = 
+          '<span style="color:#ef4444">✕ Could not read photo data</span>'
+      }
+    })
+    </script>
+</body>
+</html>
